@@ -18,350 +18,355 @@ package com.coralblocks.coralme;
 import java.util.ArrayList;
 import java.util.List;
 
-import com.coralblocks.coralme.util.CharEnum;
-import com.coralblocks.coralme.util.CharMap;
 import com.coralblocks.coralme.util.DoubleUtils;
-import com.coralblocks.coralme.util.StringUtils;
+import com.coralblocks.coralme.CancelReason;
+import com.coralblocks.coralme.ExecuteSide;
+import com.coralblocks.coralme.RejectReason;
+import com.coralblocks.coralme.Side;
+import com.coralblocks.coralme.TimeInForce;
+import com.coralblocks.coralme.Type;
+import com.coralblocks.coralme.CancelRejectReason;
+import com.coralblocks.coralme.ReduceRejectReason;
 
 public class Order {
 
 	final static String EMPTY_CLIENT_ORDER_ID = "NULL";
-	
+
 	public final static int CLIENT_ORDER_ID_MAX_LENGTH = 64;
-	
+
     private final List<OrderListener> listeners = new ArrayList<OrderListener>(64);
-    
+
     private Side side;
-    
+
     private long originalSize;
-    
+
     private long totalSize;
-    
+
     private long executedSize;
-    
+
     private PriceLevel priceLevel;
-    
+
     private long clientId;
-    
+
     private final StringBuilder clientOrderId = new StringBuilder(CLIENT_ORDER_ID_MAX_LENGTH);
-    
+
     private long price;
-    
+
     private long acceptTime;
-    
+
     private long restTime;
-    
+
     private long cancelTime;
-    
+
     private long rejectTime;
-    
+
     private long reduceTime;
-    
+
     private long executeTime;
-    
+
     private long id;
-    
+
     private String security;
-    
+
     private TimeInForce tif;
-    
+
     private Type type;
-    
+
     Order next = null;
-    
+
     Order prev = null;
-    
+
     private boolean isResting;
-    
+
     private boolean isPendingCancel;
-    
+
     private long pendingSize;
-    
+
     public Order() {
-    	
+
     }
-    
+
 	public void init(long clientId, CharSequence clientOrderId, long exchangeOrderId, String security, Side side, long size, long price, Type type, TimeInForce tif) {
-    	
+
 		this.clientId = clientId;
-		
+
     	this.clientOrderId.setLength(0);
     	this.clientOrderId.append(clientOrderId);
-    	
+
     	this.side = side;
-    	
+
     	this.type = type;
-    	
+
     	this.originalSize = this.totalSize = size;
-    	
+
     	this.price = price;
-    	
+
     	this.executedSize = 0;
-    	
+
     	this.security = security;
-    	
+
     	this.id = exchangeOrderId;
-    	
+
     	this.acceptTime = -1;
-    	
+
     	this.restTime = -1;
-    	
+
     	this.reduceTime = -1;
-    	
+
     	this.executeTime = -1;
-    	
+
     	this.cancelTime = -1;
-    	
+
     	this.rejectTime = -1;
-    	
+
     	this.priceLevel = null;
-    	
+
     	this.tif = tif;
-    	
+
     	this.isResting = false;
-    	
+
     	this.isPendingCancel = false;
-    	
+
     	this.pendingSize = -1;
-    	
+
     	this.next = this.prev = null; // sanity!
     }
-	
+
 	public final void setPendingCancel() {
 		this.isPendingCancel = true;
 	}
-	
+
 	public final void setPendingSize(long size) {
 		this.pendingSize = size;
 	}
-	
+
 	public final long getPendingSize() {
 		return pendingSize;
 	}
-	
+
 	public final boolean isPendingCancel() {
 		return isPendingCancel;
 	}
-	
+
 	public final boolean isResting() {
-		
+
 		return isResting;
 	}
-	
+
 	public final double getPriceAsDouble() {
-		
+
 		return DoubleUtils.toDouble(price);
 	}
-	
+
     public final void setPriceLevel(PriceLevel priceLevel) {
-    	
+
     	this.priceLevel = priceLevel;
     }
-    
+
     public final PriceLevel getPriceLevel() {
-    	
+
     	return priceLevel;
     }
-    
+
     public final Type getType() {
-    	
+
     	return type;
     }
-    
+
     public final boolean isLimit() {
-    	
+
     	return type == Type.LIMIT;
     }
-    
+
     public final boolean isMarket() {
-    	
+
     	return type == Type.MARKET;
     }
-    
+
     public final long getOriginalSize() {
-    	
+
     	return originalSize;
     }
-    
+
     public final long getExecutedSize() {
-    	
+
     	return executedSize;
     }
-    
+
     public final long getFilledSize() {
-    	
+
     	return executedSize;
     }
-    
+
     public final long getOpenSize() {
-    	
+
     	return totalSize - executedSize;
     }
-    
+
     public final long getTotalSize() {
-    	
+
     	return totalSize;
     }
-    
+
     public final long getAcceptTime() {
-    	
+
     	return acceptTime;
     }
-    
+
     public final long getRestTime() {
-    	
+
     	return restTime;
     }
-    
+
     public final long getReduceTime() {
-    	
+
     	return reduceTime;
     }
-    
+
     public final long getExecuteTime() {
-    	
+
     	return executeTime;
     }
-    
+
     public final long getCancelTime() {
-    	
+
     	return cancelTime;
     }
-    
+
     public final long getRejectTime() {
-    	
+
     	return rejectTime;
     }
-    
+
     public final long getCanceledSize() {
-    	
+
     	// originalSize = openSize + canceledSize + executedSize
     	return originalSize - getOpenSize() - executedSize;
     }
-    
+
     public final boolean isTerminal() {
-    	
+
     	return getOpenSize() == 0;
     }
-    
+
     public final TimeInForce getTimeInForce() {
-    	
+
     	return tif;
     }
-    
+
     public final boolean isAccepted() {
-    	
+
     	return id > 0;
     }
-    
+
     public final boolean isIoC() {
-    	
+
     	return tif == TimeInForce.IOC;
     }
-    
+
     public final boolean isDay() {
-    	
+
     	return tif == TimeInForce.DAY;
     }
-    
+
     public final boolean isGTC() {
-    	
+
     	return tif == TimeInForce.GTC;
     }
-    
+
     public final long getPrice() {
-    	
+
     	return price;
     }
-    
+
     public final Side getSide() {
-    	
+
     	return side;
     }
-    
+
     public final Side getOtherSide() {
-    	
+
     	return side == Side.BUY ? Side.SELL : Side.BUY;
     }
-    
+
     public final long getId() {
-    	
+
     	return id;
     }
-    
+
     public final long getExchangeOrderId() {
-    	
+
     	return id;
     }
-    
+
     public final long getClientId() {
-    	
+
     	return clientId;
     }
-    
+
     public final CharSequence getClientOrderId() {
-    	
+
     	return clientOrderId;
     }
-    
+
     public final String getSecurity() {
-    	
+
     	return security;
     }
-    
+
     public void addListener(OrderListener listener) {
-    	
+
     	/*
-    	 * It is very important that the OrderListener from OrderBook be executed LAST, in other words, it 
+    	 * It is very important that the OrderListener from OrderBook be executed LAST, in other words, it
     	 * should be executed AFTER the OrderListener from PriceLevel, so the level can be removed if empty.
-    	 * 
+    	 *
     	 * That's why the listeners will be called from last to first.
     	 */
-    	
+
         listeners.add(listener);
     }
-    
+
     public void accept(long time, long id) {
-    	
+
     	this.id = id;
-    	
+
     	this.acceptTime = time;
-        
+
         int x = listeners.size();
-        
+
         for(int i = x - 1; i >= 0; i--) {
-        	
+
         	listeners.get(i).onOrderAccepted(time, this);
         }
     }
-    
+
     public void rest(long time) {
-    	
+
     	this.isResting = true;
-    	
+
     	this.restTime = time;
-        
+
         int x = listeners.size();
-        
+
         for(int i = x - 1; i >= 0; i--) {
-        	
+
         	listeners.get(i).onOrderRested(time, this, getOpenSize(), getPrice());
         }
     }
-    
+
     public void reject(long time, RejectReason reason) {
-    	
+
     	this.totalSize = this.executedSize = 0;
-    	
+
     	this.rejectTime = time;
-    	
+
         int x = listeners.size();
-        
+
         for(int i = x - 1; i >= 0; i--) {
-        	
+
         	listeners.get(i).onOrderRejected(time, this, reason);
         }
-        
+
         listeners.clear();
     }
     
